@@ -114,7 +114,7 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
   (let ((key (org-element-property :key keyword))
         (value (org-element-property :value keyword)))
     (cond
-     ((string= key "MORE")
+     ((string= key "EXCERPT")
       ((lambda(val) (if (eq (length val) 0) "<!--more-->" val)) value)))))
 
 
