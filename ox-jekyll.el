@@ -39,10 +39,9 @@
   :version "24.4"
   :package-version '(Org . "8.0"))
 
-;; (defcustom org-jekyll-default-layout "layout"
-;;   "The default layout"
-;;   :group 'org-export-latex
-;;   :type '(string :tag "LaTeX class"))
+(defcustom org-jekyll-default-layout "layout"
+  "The default layout"
+  :group 'org-export-jekyll)
 
 
 ;;; Define Back-End
@@ -59,12 +58,12 @@
   :menu-entry
   '(?j "Export to Jekyll Format"
        ((?J "To temporary buffer"
-            (lambda (a s v b) (org-jekyll-export-as-markdown a s v)))
-        (?j "To file" (lambda (a s v b) (org-jekyll-export-to-markdown a s v)))
+            (lambda (a s v b) (org-md-export-as-jekyll a s v)))
+        (?j "To file" (lambda (a s v b) (org-md-export-to-jekyll a s v)))
         (?o "To file and open"
             (lambda (a s v b)
-              (if a (org-jekyll-export-to-markdown t s v)
-                (org-open-file (org-jekyll-export-to-markdown nil s v)))))))
+              (if a (org-md-export-to-jekyll t s v)
+                (org-open-file (org-md-export-to-jekyll nil s v)))))))
   :translate-alist '((paragraph . org-jekyll-paragraph)
                      (keyword . org-jekyll-keyword)
                      (strike-through . org-jekyll-strike-through)
@@ -280,11 +279,20 @@ contextual information."
             (replace-regexp-in-string "\n\n" "\n" contents))))
 
 
-
+
+(defun org-jekyll-filename (old-function &rest arguments)
+  (let ((filename (apply old-function arguments)))
+    (concat (file-name-directory filename)
+            (shell-command-to-string "echo -n $(date +%Y-%m-%d-)")
+            (file-name-nondirectory filename))))
+
+
+
+
 ;;; Interactive function
 
 ;;;###autoload
-(defun org-jekyll-export-as-markdown (&optional async subtreep visible-only)
+(defun org-md-export-as-jekyll (&optional async subtreep visible-only)
   "Export current buffer to a Github Flavored Markdown buffer.
 
 If narrowing is active in the current buffer, only export its
@@ -312,7 +320,7 @@ non-nil."
 
 
 ;;;###autoload
-(defun org-jekyll-convert-region-to-jekyll ()
+(defun org-md-convert-region-to-jekyll ()
   "Assume the current region has org-mode syntax, and convert it
 to Jekyll.  This can be used in any buffer.
 For example, you can write an itemized list in org-mode syntax in
@@ -322,7 +330,7 @@ a Markdown buffer and use this command to convert it."
 
 
 ;;;###autoload
-(defun org-jekyll-export-to-jekyll (&optional async subtreep visible-only)
+(defun org-md-export-to-jekyll (&optional async subtreep visible-only)
   "Export current buffer to a Jekyll post file.
 
 If narrowing is active in the current buffer, only export its
@@ -343,17 +351,23 @@ contents of hidden elements.
 
 Return output file's name."
   (interactive)
+  (advice-add #'org-export-output-file-name :around #'org-jekyll-filename)
   (let ((outfile (org-export-output-file-name ".md" subtreep)))
-    (org-export-to-file 'jekyll outfile async subtreep visible-only)))
+    (let ((file (org-export-to-file 'jekyll outfile async subtreep visible-only)))
+    (advice-remove 'org-export-output-file-name #'org-jekyll-filename)
+    file)))
 
 ;;;###autoload
-(defun org-jekyll-publish-to-jekyll (plist filename pub-dir)
+(defun org-md-publish-to-jekyll (plist filename pub-dir)
   "Publish an org file to a Jekyll post.
 FILENAME is the filename of the Org file to be published.  PLIST
 is the property list for the given project.  PUB-DIR is the
 publishing directory.
 Return output file name."
-  (org-publish-org-to 'jekyll filename ".md" plist pub-dir))
+  (advice-add #'org-export-output-file-name :around #'org-jekyll-filename)
+  (let ((file-name (org-publish-org-to 'jekyll filename ".md" plist pub-dir)))    
+    (advice-remove 'org-export-output-file-name #'org-jekyll-filename)
+    file-name))
 
 (provide 'ox-jekyll)
 
