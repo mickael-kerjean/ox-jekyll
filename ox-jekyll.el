@@ -24,6 +24,7 @@
 
 ;; This library implements a Jekyll back-end (with github markdown flavor and front matter) for Org
 ;; exporter, based on the `md' back-end.
+;; This backend was adapt and extend from the work already done on the gfm backend
 
 ;;; Code:
 
@@ -72,14 +73,16 @@
                      (inner-template . org-jekyll-template)
                      (headline . org-jekyll-headline)
                      (table-cell . org-jekyll-table-cell)
+                     (timestamp . org-jekyll-date)
                      (table-row . org-jekyll-table-row)
                      (table . org-jekyll-table)))
 
 
 ;;; Transcode Functions
-
-
 (defun org-jekyll-template (contents info)
+  (let ((export-date (org-export-data (org-export-get-date info) info)))
+    (setq jekyll-date-export (if export-date export-date (format-time-string "%Y-%m-%d"))))
+
   (let (
         (layout (format "layout: %s\n" (org-export-data (plist-get info :layout) info)))
         (title (org-jekyll--format "title: %s\n" (org-export-data (plist-get info :title) info)))
@@ -89,6 +92,9 @@
         (tags (org-jekyll--format "tags: %s\n" (org-export-data (plist-get info :tags) info)))
         (category (org-jekyll--format "category: %s\n" (org-export-data (plist-get info :category) info))))
     (concat "---\n" layout title date image published tags category "---\n\n" contents)))
+
+
+
 
 (defun org-jekyll--format (my-format value)
   "private function formatting a value if the value exists"
@@ -105,6 +111,11 @@ holding export options."
 (defun org-jekyll-headline (headline contents info)
   (let* ((new-info (plist-put info :with-toc nil)))
     (org-md-headline headline contents new-info)))
+
+
+;;;; Timestamp
+(defun org-jekyll-date (timestamp contents info)
+  (format-time-string "%Y-%m-%d" (org-time-string-to-time (org-timestamp-translate timestamp))))
 
 ;;;; Keyword
 (defun org-jekyll-keyword (keyword contents info)
@@ -158,6 +169,7 @@ holding contextual information."
 
 (defvar width-cookies nil)
 (defvar width-cookies-table nil)
+(defvar jekyll-date-export nil)
 
 (defconst jekyll-table-left-border "|")
 (defconst jekyll-table-right-border " |")
@@ -283,7 +295,7 @@ contextual information."
 (defun org-jekyll-filename (old-function &rest arguments)
   (let ((filename (apply old-function arguments)))
     (concat (file-name-directory filename)
-            (shell-command-to-string "echo -n $(date +%Y-%m-%d-)")
+            jekyll-date-export "-"
             (file-name-nondirectory filename))))
 
 
@@ -365,7 +377,7 @@ is the property list for the given project.  PUB-DIR is the
 publishing directory.
 Return output file name."
   (advice-add #'org-export-output-file-name :around #'org-jekyll-filename)
-  (let ((file-name (org-publish-org-to 'jekyll filename ".md" plist pub-dir)))    
+  (let ((file-name (org-publish-org-to 'jekyll filename ".md" plist pub-dir)))
     (advice-remove 'org-export-output-file-name #'org-jekyll-filename)
     file-name))
 
