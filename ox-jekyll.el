@@ -55,6 +55,7 @@
                    (:tags "TAGS" nil nil t)
                    (:published "PUBLISHED" nil nil t)
                    (:category "CATEGORY" nil nil t)
+                   (:categories "CATEGORIES" nil nil t)
                    (:date "DATE" nil nil t))
   :menu-entry
   '(?j "Export to Jekyll Format"
@@ -90,8 +91,9 @@
         (image (org-jekyll--format "image: %s\n" (org-export-data (plist-get info :image) info)))
         (published (org-jekyll--format "published: %s\n" (org-export-data (plist-get info :published) info)))
         (tags (org-jekyll--format "tags: %s\n" (org-export-data (plist-get info :tags) info)))
+        (categories (org-jekyll--format "categories: %s\n" (org-export-data (plist-get info :categories) info)))
         (category (org-jekyll--format "category: %s\n" (org-export-data (plist-get info :category) info))))
-    (concat "---\n" layout title date image published tags category "---\n\n" contents)))
+    (concat "---\n" layout title date image published tags category categories "---\n\n" contents)))
 
 
 
