@@ -44,12 +44,15 @@
   "The default layout"
   :group 'org-export-jekyll)
 
+(defvar jekyll-date-export nil)
+(defvar jekyll-default-layout "post")
+
 
 ;;; Define Back-End
 
 (org-export-define-derived-backend 'jekyll 'md
   :filters-alist '((:filter-parse-tree . org-md-separate-elements))
-  :options-alist '((:layout "LAYOUT" nil "post" t)
+  :options-alist '((:layout "LAYOUT" nil jekyll-default-layout t)
                    (:image "IMAGE" nil nil t)
                    (:title "TITLE" nil nil t)
                    (:tags "TAGS" nil nil t)
@@ -171,7 +174,6 @@ holding contextual information."
 
 (defvar width-cookies nil)
 (defvar width-cookies-table nil)
-(defvar jekyll-date-export nil)
 
 (defconst jekyll-table-left-border "|")
 (defconst jekyll-table-right-border " |")
