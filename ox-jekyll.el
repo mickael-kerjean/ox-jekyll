@@ -85,7 +85,8 @@
 ;;; Transcode Functions
 (defun org-jekyll-template (contents info)
   (let ((export-date (org-export-data (org-export-get-date info) info)))
-    (setq jekyll-date-export (if export-date export-date (format-time-string "%Y-%m-%d"))))
+    (setq jekyll-date-export (if export-date export-date (format-time-string "%Y-%m-%d")))
+    (advice-add #'org-export-output-file-name :around #'org-jekyll-filename))
 
   (let (
         (layout (format "layout: %s\n" (org-export-data (plist-get info :layout) info)))
@@ -297,6 +298,7 @@ contextual information."
 
 
 (defun org-jekyll-filename (old-function &rest arguments)
+  (error "advising in")
   (let ((filename (apply old-function arguments)))
     (concat (file-name-directory filename)
             jekyll-date-export "-"
@@ -367,7 +369,6 @@ contents of hidden elements.
 
 Return output file's name."
   (interactive)
-  (advice-add #'org-export-output-file-name :around #'org-jekyll-filename)
   (let ((outfile (org-export-output-file-name ".md" subtreep)))
     (let ((file (org-export-to-file 'jekyll outfile async subtreep visible-only)))
     (advice-remove 'org-export-output-file-name #'org-jekyll-filename)
@@ -380,7 +381,6 @@ FILENAME is the filename of the Org file to be published.  PLIST
 is the property list for the given project.  PUB-DIR is the
 publishing directory.
 Return output file name."
-  (advice-add #'org-export-output-file-name :around #'org-jekyll-filename)
   (let ((file-name (org-publish-org-to 'jekyll filename ".md" plist pub-dir)))
     (advice-remove 'org-export-output-file-name #'org-jekyll-filename)
     file-name))
