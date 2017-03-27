@@ -29,6 +29,7 @@
 ;;; Code:
 
 (require 'ox-md)
+(require 'ox-html)
 (require 'ox-publish)
 
 ;;; User-Configurable Variables
@@ -111,10 +112,11 @@ holding export options."
   (let* ((new-info (plist-put info :with-toc nil)))
     (org-md-headline headline contents new-info)))
 
-
 ;;;; Links
 (defun org-jekyll-link (link contents info)
-  (if (string= "file" (org-element-property :type link))
+  (if (and
+       (string= "file" (org-element-property :type link))
+       (not (org-export-inline-image-p link org-html-inline-image-rules)))
       (format "[%s]({%% post_url %s %%})" contents (file-name-base (org-element-property :path link)))
       (org-export-data-with-backend link 'md info)))
 
