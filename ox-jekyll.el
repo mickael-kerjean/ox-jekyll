@@ -61,11 +61,10 @@
                    (:categories "CATEGORIES" nil nil t)
                    (:date "DATE" nil nil t))
   :menu-entry
-  '(?j "Export to Jekyll Format"
-       ((?J "To temporary buffer"
-            (lambda (a s v b) (org-md-export-as-jekyll a s v)))
-        (?j "To file" (lambda (a s v b) (org-md-export-to-jekyll a s v)))
-        (?o "To file and open"
+  '(?j "Export to Jekyll"
+       ((?J "as Jekyll buffer" org-md-export-as-jekyll)
+        (?j "as Jekyll file" org-md-export-to-jekyll)
+        (?o "as Jekyll file and open"
             (lambda (a s v b)
               (if a (org-md-export-to-jekyll t s v)
                 (org-open-file (org-md-export-to-jekyll nil s v)))))))
@@ -73,7 +72,7 @@
                      (keyword . org-jekyll-keyword)
                      (strike-through . org-jekyll-strike-through)
                      (src-block . org-jekyll-src-block)
-                     (src-block . org-jekyll-src-block)
+                     (link . org-jekyll-link)
                      (inner-template . org-jekyll-template)
                      (headline . org-jekyll-headline)
                      (table-cell . org-jekyll-table-cell)
@@ -84,10 +83,6 @@
 
 ;;; Transcode Functions
 (defun org-jekyll-template (contents info)
-  (let ((export-date (org-export-data (org-export-get-date info) info)))
-    (setq jekyll-date-export (if export-date export-date (format-time-string "%Y-%m-%d")))
-    (advice-add #'org-export-output-file-name :around #'org-jekyll-filename))
-
   (let (
         (layout (format "layout: %s\n" (org-export-data (plist-get info :layout) info)))
         (title (org-jekyll--format "title: %s\n" (org-export-data (plist-get info :title) info)))
@@ -98,8 +93,6 @@
         (categories (org-jekyll--format "categories: %s\n" (org-export-data (plist-get info :categories) info)))
         (category (org-jekyll--format "category: %s\n" (org-export-data (plist-get info :category) info))))
     (concat "---\n" layout title date image published tags category categories "---\n\n" contents)))
-
-
 
 
 (defun org-jekyll--format (my-format value)
@@ -119,6 +112,13 @@ holding export options."
     (org-md-headline headline contents new-info)))
 
 
+;;;; Links
+(defun org-jekyll-link (link contents info)
+  (if (string= "file" (org-element-property :type link))
+      (format "[%s]({%% post_url %s %%})" contents (file-name-base (org-element-property :path link)))
+      (org-export-data-with-backend link 'md info)))
+
+
 ;;;; Timestamp
 (defun org-jekyll-date (timestamp contents info)
   (format-time-string "%Y-%m-%d" (org-time-string-to-time (org-timestamp-translate timestamp))))
@@ -130,8 +130,13 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
   (let ((key (org-element-property :key keyword))
         (value (org-element-property :value keyword)))
     (cond
-     ((string= key "EXCERPT")
-      ((lambda(val) (if (eq (length val) 0) "<!--more-->" val)) value)))))
+     ((string= key "EXCERPT") ((lambda(val) (if (eq (length val) 0) "<!--more-->" val)) value))
+     ((string= key "AMP_YOUTUBE") (format "<amp-youtube data-videoid=\"%s\" %s data-param-rel=\"0\" data-param-showinfo=\"0\" layout=\"responsive\" width=\"480\" height=\"270\"></amp-youtube>"
+                                          (replace-regexp-in-string ",.*" "" value)
+                                          (if (string-match "start=" value) (format "data-param-start=\"%s\"" (replace-regexp-in-string ".*start=" "" value)) "")
+                                          ))
+     ((string= key "AMP_IMG") (format "<amp-img width=\"480\" height=\"270\"></amp-img>" value))
+     )))
 
 
 ;;;; Paragraph
@@ -297,41 +302,18 @@ contextual information."
 
 
 
-(defun org-jekyll-filename (old-function &rest arguments)
-  (error "advising in")
-  (let ((filename (apply old-function arguments)))
-    (concat (file-name-directory filename)
-            jekyll-date-export "-"
-            (file-name-nondirectory filename))))
-
-
+;; (defun org-jekyll-filename (old-function &rest arguments)
+;;   (error "advising in")
+;;   (let ((filename (apply old-function arguments)))
+;;     (concat (file-name-directory filename)
+;;             jekyll-date-export "-"
+;;             (file-name-nondirectory filename))))
 
 
 ;;; Interactive function
 
 ;;;###autoload
-(defun org-md-export-as-jekyll (&optional async subtreep visible-only)
-  "Export current buffer to a Github Flavored Markdown buffer.
-
-If narrowing is active in the current buffer, only export its
-narrowed part.
-
-If a region is active, export that region.
-
-A non-nil optional argument ASYNC means the process should happen
-asynchronously.  The resulting buffer should be accessible
-through the `org-export-stack' interface.
-
-When optional argument SUBTREEP is non-nil, export the sub-tree
-at point, extracting information from the headline properties
-first.
-
-When optional argument VISIBLE-ONLY is non-nil, don't export
-contents of hidden elements.
-
-Export is done in a buffer named \"*Org JEKYLL Export*\", which will
-be displayed when `org-export-show-temporary-export-buffer' is
-non-nil."
+(defun org-md-export-as-jekyll (&optional async subtreep visible-only body-only ext-plist)
   (interactive)
   (org-export-to-buffer 'jekyll "*Org JEKYLL Export*"
     async subtreep visible-only nil nil (lambda () (text-mode))))
@@ -339,52 +321,19 @@ non-nil."
 
 ;;;###autoload
 (defun org-md-convert-region-to-jekyll ()
-  "Assume the current region has org-mode syntax, and convert it
-to Jekyll.  This can be used in any buffer.
-For example, you can write an itemized list in org-mode syntax in
-a Markdown buffer and use this command to convert it."
   (interactive)
   (org-export-replace-region-by 'jekyll))
 
 
 ;;;###autoload
-(defun org-md-export-to-jekyll (&optional async subtreep visible-only)
-  "Export current buffer to a Jekyll post file.
-
-If narrowing is active in the current buffer, only export its
-narrowed part.
-
-If a region is active, export that region.
-
-A non-nil optional argument ASYNC means the process should happen
-asynchronously.  The resulting file should be accessible through
-the `org-export-stack' interface.
-
-When optional argument SUBTREEP is non-nil, export the sub-tree
-at point, extracting information from the headline properties
-first.
-
-When optional argument VISIBLE-ONLY is non-nil, don't export
-contents of hidden elements.
-
-Return output file's name."
+(defun org-md-export-to-jekyll (&optional async subtreep visible-only body-only ext-plist)
   (interactive)
   (let ((outfile (org-export-output-file-name ".md" subtreep)))
-    (let ((file (org-export-to-file 'jekyll outfile async subtreep visible-only)))
-    (advice-remove 'org-export-output-file-name #'org-jekyll-filename)
-    file)))
+    (org-export-to-file 'jekyll outfile async subtreep visible-only)))
 
 ;;;###autoload
 (defun org-md-publish-to-jekyll (plist filename pub-dir)
-  "Publish an org file to a Jekyll post.
-FILENAME is the filename of the Org file to be published.  PLIST
-is the property list for the given project.  PUB-DIR is the
-publishing directory.
-Return output file name."
-  (let ((file-name (org-publish-org-to 'jekyll filename ".md" plist pub-dir)))
-    (advice-remove 'org-export-output-file-name #'org-jekyll-filename)
-    file-name))
+  (org-publish-org-to 'jekyll filename ".md" plist pub-dir))
+
 
 (provide 'ox-jekyll)
-
-;;; ox-jekyll.el ends here
