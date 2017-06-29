@@ -137,7 +137,10 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
                                           (replace-regexp-in-string ",.*" "" value)
                                           (if (string-match "start=" value) (format "data-param-start=\"%s\"" (replace-regexp-in-string ".*start=" "" value)) "")
                                           ))
-     ((string= key "AMP_IMG") (format "<amp-img width=\"480\" height=\"270\"></amp-img>" value))
+     ((string= key "AMP_IMG") (format "<amp-img src=\"%s\" width=\"%s\" height=\"%s\" layout="responsive"></amp-img>"
+                                      (replace-regexp-in-string ",.*" "" value)
+                                      (replace-regexp-in-string "x.*" "" (replace-regexp-in-string ".*size=" "" value))
+                                      (replace-regexp-in-string ".*x" "" (replace-regexp-in-string ".*size=" "" value))))
      )))
 
 
